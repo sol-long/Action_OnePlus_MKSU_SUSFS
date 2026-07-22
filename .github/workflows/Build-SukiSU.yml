@@ -204,15 +204,22 @@ jobs:
           cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
 
           if [ "${{ github.event.inputs.ZRAM }}" = "true" ]; then
-          echo "正在给内核打zram补丁"
-          cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./common/include/linux
-          cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./common/lib
-          cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./common/crypto
-          cp -r ../SukiSU_patch/other/zram/lz4k_oplus ./common/lib/
+            echo "正在给内核打zram补丁"
+            cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./common/include/linux
+            cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./common/lib
+            cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./common/crypto
+            cp -r ../SukiSU_patch/other/zram/lz4k_oplus ./common/lib/
           fi
 
           cd ./common
-          patch -p1 < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || true
+
+          # 【关键修复】在 fs/proc/base.c 首行强制插入 include 指令
+          if ! grep -q "include <linux/susfs.h>" fs/proc/base.c; then
+            sed -i '1i#include <linux/susfs.h>' fs/proc/base.c
+          fi
+
+          # 使用 -F 3 提高 fuzz 匹配容错，同时忽略空白差异
+          patch -p1 -F 3 --ignore-whitespace < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || true
           echo "完成"
 
       - name: Apply Hide Stuff Patches
